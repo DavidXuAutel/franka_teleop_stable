@@ -1,0 +1,8 @@
+stable-v1.0-2026-07-10
+date=2026-07-10
+robot_ip=10.229.66.91
+remote_server=10.229.20.125
+robot_serial=295341-2600345
+gello_usb=usb-FTDI_USB__-__Serial_Converter_FTBYD1JM-if00-port0
+load_gripper=true
+verified_tracking_error_rad=0.027
