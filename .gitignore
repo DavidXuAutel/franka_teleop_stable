@@ -1,2 +1,5 @@
 gello_desk/.desk_token
 **/__pycache__/
+
+.DS_Store
+._*

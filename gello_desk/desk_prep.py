@@ -50,7 +50,8 @@ class DeskClient:
         )
         ctx = urllib.request.ssl._create_unverified_context()
         try:
-            with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+            # Keep modest; Desk take-control confirm can otherwise block callers ~30s+.
+            with urllib.request.urlopen(req, context=ctx, timeout=12) as resp:
                 raw = resp.read().decode()
                 if accept_empty or not raw:
                     return None
@@ -114,31 +115,37 @@ class DeskClient:
             self.control_token = None
             return False
 
-    def take_control(self, owner: str, timeout: float = 30.0) -> bool:
+    def take_control(self, owner: str, timeout: float = 8.0) -> bool:
         state = self.get_control_token_state()
-        if state.get("owner") == owner and self.load_saved_token():
+        current_owner = state.get("owner")
+        if current_owner == owner and self.load_saved_token():
             print(f"Reusing saved control token for {owner}")
             return True
+        # Desk UI (owner typically "franka") requires on-screen confirm; do not
+        # block startup for a full Desk timeout. Ask operator to Release first.
+        if current_owner and current_owner != owner:
+            print(
+                f"Control owned by {current_owner!r}. "
+                "In Desk: Release control, then retry; "
+                f"trying take with short timeout={timeout}s ..."
+            )
         try:
             result = self._request(
                 "POST",
                 "/api/system/control-token:take",
                 {"owner": owner, "timeout": timeout},
             )
-        except RuntimeError as exc:
+        except (RuntimeError, TimeoutError, urllib.error.URLError) as exc:
             msg = str(exc)
-            if any(code in msg for code in ('"code":"Timeout"', '"code":"RequestOverride"')):
+            if any(
+                code in msg
+                for code in ('"code":"Timeout"', '"code":"RequestOverride"', "timed out")
+            ) or isinstance(exc, (TimeoutError, urllib.error.URLError)):
                 current = self.get_control_token_state()
                 print(
                     "Could not take control token; current owner:",
                     current.get("owner"),
-                )
-                return False
-            if "Timeout" in msg:
-                current = self.get_control_token_state()
-                print(
-                    "Could not take control token; current owner:",
-                    current.get("owner"),
+                    f"({exc})",
                 )
                 return False
             raise
@@ -209,11 +216,11 @@ def main() -> int:
                 print(f"Recovery skipped: {exc}")
         try:
             client.unlock_joints()
-        except RuntimeError as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"Unlock skipped: {exc}")
         try:
             client.activate_fci()
-        except RuntimeError as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"FCI activate skipped: {exc}")
     else:
         fci = client.get_fci()

@@ -2,9 +2,11 @@ robot1:
   arm_id: "fr3"
   arm_prefix: ""
   fake_sensor_commands: "false" 
-  joint_sources: ["joint_states", "franka_gripper/joint_states"] 
-  joint_state_rate: 30 
-  load_gripper: "true" 
+  # load_gripper=false: franka_gripper_node Homing/Move (or even concurrent gripper
+  # session) can mode-switch / drop the arm libfranka TCP and kill ros2_control.
+  joint_sources: ["joint_states"]
+  joint_state_rate: 30
+  load_gripper: "false" 
   namespace: ""
   robot_ip: "10.229.66.91" 
   urdf_file: "fr3/fr3.urdf.xacro" 
