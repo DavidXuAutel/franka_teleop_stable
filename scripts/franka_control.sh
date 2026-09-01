@@ -17,9 +17,11 @@ Usage: franka_control.sh <command>
 
 Commands:
   status     Check robot connectivity, FCI, and ROS2 controllers
+  preflight  Link/connectivity preflight (route + RTT + :1337)
   prepare    Activate FCI via Desk API (desk_prep.py)
   start      Start FR3 arm stack only (no GELLO)
   teleop     Start full GELLO teleop (publisher + arm stack)
+  restart    Safe restart: stop → preflight → desk_prep → teleop
   stop       Stop all Franka/GELLO nodes and release Desk token
   test       Run libfranka communication_test + echo_robot_state
 
@@ -41,6 +43,10 @@ cmd_status() {
   pgrep -af "gello|franka_fr3|ros2_control_node" 2>/dev/null | head -10 || echo "(none)"
 }
 
+cmd_preflight() {
+  bash /home/yao/gello_desk/link_preflight.sh
+}
+
 cmd_prepare() {
   python3 /home/yao/gello_desk/desk_prep.py --host "$ROBOT_IP" --recover
 }
@@ -51,6 +57,10 @@ cmd_start() {
 
 cmd_teleop() {
   ROBOT_IP="$ROBOT_IP" bash /home/yao/gello_launch.sh
+}
+
+cmd_restart() {
+  bash /home/yao/gello_desk/restart_teleop.sh restart
 }
 
 cmd_stop() {
@@ -70,9 +80,11 @@ cmd_test() {
 
 case "${1:-}" in
   status) cmd_status ;;
+  preflight|link) cmd_preflight ;;
   prepare) cmd_prepare ;;
   start) cmd_start ;;
   teleop) cmd_teleop ;;
+  restart) cmd_restart ;;
   stop) cmd_stop ;;
   test) cmd_test ;;
   *) usage; exit 1 ;;

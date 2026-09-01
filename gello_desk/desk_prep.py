@@ -41,7 +41,10 @@ class DeskClient:
             if not self.control_token:
                 raise RuntimeError("Control token required but not acquired")
             headers["X-Control-Token"] = self.control_token
-        data = None if body is None else json.dumps(body).encode()
+        # Desk rejects POST with empty body ("Unexpected end-of-input"); send {}.
+        if method.upper() in {"POST", "PUT", "PATCH"} and body is None:
+            body = {}
+        data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(
             f"{self.base}{path}",
             data=data,
@@ -170,15 +173,48 @@ class DeskClient:
     def recover_safety(self) -> None:
         recovery = self._request("GET", "/api/safety/recovery", control=True)
         print("Recovery state:", recovery)
-        self._request("POST", "/api/safety/recovery:start", control=True, accept_empty=True)
-        print("Recovery started")
-        self._request(
-            "POST",
-            "/api/safety/recovery:confirm",
-            control=True,
-            accept_empty=True,
-        )
-        print("Recovery confirmed")
+        rec = {}
+        if isinstance(recovery, dict):
+            rec = recovery.get("recovery") or {}
+        rec_type = rec.get("type") if isinstance(rec, dict) else None
+
+        # StartRecovery only accepts JointPositionError / JointLimitViolation.
+        if rec_type in {"JointPositionError", "JointLimitViolation"}:
+            self._request(
+                "POST",
+                "/api/safety/recovery:start",
+                {"type": rec_type},
+                control=True,
+                accept_empty=True,
+            )
+            print(f"Recovery started ({rec_type})")
+            self._request(
+                "POST",
+                "/api/safety/recovery:confirm",
+                {"type": rec_type},
+                control=True,
+                accept_empty=True,
+            )
+            print("Recovery confirmed")
+            return
+
+        # GenericJointError / UserStop-style: confirm with reported type (or skip).
+        if rec_type:
+            try:
+                self._request(
+                    "POST",
+                    "/api/safety/recovery:confirm",
+                    {"type": rec_type},
+                    control=True,
+                    accept_empty=True,
+                )
+                print(f"Recovery confirmed ({rec_type})")
+            except RuntimeError as exc:
+                # Fall back: empty confirm is invalid; report and continue.
+                print(f"Recovery confirm skipped for {rec_type}: {exc}")
+            return
+
+        print("No active recovery required")
 
 
 def main() -> int:
@@ -212,7 +248,7 @@ def main() -> int:
         if args.recover:
             try:
                 client.recover_safety()
-            except RuntimeError as exc:
+            except Exception as exc:  # noqa: BLE001 — Desk often times out on SelfTestsElapsed
                 print(f"Recovery skipped: {exc}")
         try:
             client.unlock_joints()

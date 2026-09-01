@@ -22,6 +22,7 @@ release_control() {
 
 stop_all() {
   pkill -f mujoco_ros_mirror.py 2>/dev/null || true
+  pkill -f teleop_error_watchdog.py 2>/dev/null || true
   pkill -f gello_publisher 2>/dev/null || true
   pkill -f franka_gripper_client 2>/dev/null || true
   pkill -f franka_fr3_arm_controllers 2>/dev/null || true
@@ -66,6 +67,17 @@ trap on_launch_exit EXIT
 
 stop_all
 sleep 2
+
+echo "[0/4] Link preflight (mandatory before teleop)..."
+if [ "${LINK_PREFLIGHT_OK:-0}" != "1" ]; then
+  if ! bash /home/yao/gello_desk/link_preflight.sh; then
+    echo "ABORT: link preflight failed — not starting teleop."
+    echo "中止：链路预检失败，未启动遥操。"
+    exit 1
+  fi
+else
+  echo "Link preflight skipped (LINK_PREFLIGHT_OK=1)."
+fi
 
 echo "[1/4] Desk API prepare (token / unlock / FCI / recovery)..."
 python3 /home/yao/gello_desk/desk_prep.py \
@@ -113,6 +125,16 @@ ros2 control list_controllers 2>/dev/null || true
 
 echo "[4/4] Starting MuJoCo sync (Franka + GELLO)..."
 bash "$0" mujoco
+
+echo "[+] Starting teleop anomaly watchdog (fault-hold=${TELEOP_FAULT_HOLD_S:-10}s)..."
+pkill -f teleop_error_watchdog.py 2>/dev/null || true
+nohup python3 /home/yao/gello_desk/teleop_error_watchdog.py \
+  --desk-host "${DESK_HOST_WIFI:-$ROBOT_IP}" \
+  --fault-hold "${TELEOP_FAULT_HOLD_S:-10}" \
+  --cooldown "${TELEOP_RECOVER_COOLDOWN_S:-90}" \
+  --recover-script /home/yao/gello_desk/recover_arm_stack.sh \
+  >"$LOG_DIR/teleop_error_watchdog.log" 2>&1 &
+echo "watchdog pid=$!"
 
 echo "Stop and release Desk control: bash $0 stop"
 echo "Logs in $LOG_DIR/"

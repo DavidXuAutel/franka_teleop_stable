@@ -1,14 +1,24 @@
 robot1:
   arm_id: "fr3"
   arm_prefix: ""
+<<<<<<< Updated upstream
   fake_sensor_commands: "false" 
   # load_gripper=false: franka_gripper_node Homing/Move (or even concurrent gripper
   # session) can mode-switch / drop the arm libfranka TCP and kill ros2_control.
   joint_sources: ["joint_states"]
   joint_state_rate: 30
   load_gripper: "false" 
+=======
+  fake_sensor_commands: "false"
+  # load_gripper=true starts franka_gripper_node on :1338 (NOT arm FCI :1337).
+  # Gripper Move must pause joint_impedance_controller first — see patched
+  # franka_gripper_client (pause_arm_for_move). Never Homing during teleop.
+  joint_sources: ["joint_states", "franka_gripper/joint_states"]
+  joint_state_rate: 30
+  load_gripper: "true"
+>>>>>>> Stashed changes
   namespace: ""
-  robot_ip: "10.229.66.91" 
-  urdf_file: "fr3/fr3.urdf.xacro" 
-  use_fake_hardware: "false" 
-  use_rviz: "false" 
+  robot_ip: "10.229.66.91"
+  urdf_file: "fr3/fr3.urdf.xacro"
+  use_fake_hardware: "false"
+  use_rviz: "false"

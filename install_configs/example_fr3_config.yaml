@@ -1,13 +1,22 @@
 robot1:
   arm_id: "fr3"
   arm_prefix: ""
+<<<<<<< Updated upstream
   fake_sensor_commands: "false" 
   # load_gripper=false: avoid concurrent gripper session tearing down arm FCI.
   joint_sources: ["joint_states"]
   joint_state_rate: 30
   load_gripper: "false" 
+=======
+  fake_sensor_commands: "false"
+  # load_gripper=true: franka_gripper_node on :1338. Move requires pausing arm
+  # impedance (patched franka_gripper_client pause_arm_for_move).
+  joint_sources: ["joint_states", "franka_gripper/joint_states"]
+  joint_state_rate: 30
+  load_gripper: "true"
+>>>>>>> Stashed changes
   namespace: ""
-  robot_ip: "10.229.66.91" 
-  urdf_file: "fr3/fr3.urdf.xacro" 
-  use_fake_hardware: "false" 
-  use_rviz: "false" 
+  robot_ip: "10.229.66.91"
+  urdf_file: "fr3/fr3.urdf.xacro"
+  use_fake_hardware: "false"
+  use_rviz: "false"

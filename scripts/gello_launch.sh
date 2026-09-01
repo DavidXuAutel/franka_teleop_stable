@@ -26,6 +26,18 @@ if [ "${1:-}" = "stop" ]; then
   exit 0
 fi
 
+# Mandatory link preflight before teleop (skip if already verified by restart_teleop.sh)
+if [ "${LINK_PREFLIGHT_OK:-0}" != "1" ]; then
+  echo "[0/3] Link preflight (mandatory before teleop)..."
+  if ! bash /home/yao/gello_desk/link_preflight.sh; then
+    echo "ABORT: link preflight failed — not starting teleop."
+    echo "中止：链路预检失败，未启动遥操。"
+    exit 1
+  fi
+else
+  echo "[0/3] Link preflight skipped (LINK_PREFLIGHT_OK=1)."
+fi
+
 if ! ls /dev/serial/by-id/usb-FTDI_* >/dev/null 2>&1; then
   echo "GELLO serial device not found. Check USB connection."
   ls -la /dev/serial/by-id/ 2>/dev/null || true
